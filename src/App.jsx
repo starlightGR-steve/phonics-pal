@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Volume2, Settings, X, Mic, Play, Square, Trash2, Zap, GraduationCap, LayoutGrid, Layers, ChevronLeft, ChevronRight, Wand2, Loader2, Cloud, HardDrive, Lock } from 'lucide-react';
 import { uploadAudioToFirebase, getAudioURLFromFirebase, deleteAudioFromFirebase, listAllAudioFiles } from './firebaseStorage';
 
+console.log('📱 App.jsx loaded!');
+
 // --- DATA CONSTANTS ---
 const PHONIC_DATA = [
   // 🔤 SECTION 1 — Single Consonant Sounds (A–Z)
