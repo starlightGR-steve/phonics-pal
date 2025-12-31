@@ -8,6 +8,11 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- DEBUG: If you see this text, HTML loaded but React failed -->
+    <noscript>JavaScript is disabled</noscript>
+    <div id="debug-check" style="position: fixed; top: 0; left: 0; right: 0; background: orange; color: black; text-align: center; padding: 10px; font-weight: bold; z-index: 9999;">
+      🔍 DEBUG: HTML loaded, waiting for React... (Build: 2025-01-01-v3)
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
