@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Volume2, Settings, X, Mic, Play, Square, Trash2, Zap, GraduationCap, LayoutGrid, Layers, ChevronLeft, ChevronRight, Wand2, Loader2 } from 'lucide-react';
+import { Volume2, Settings, X, Mic, Play, Square, Trash2, Zap, GraduationCap, LayoutGrid, Layers, ChevronLeft, ChevronRight, Wand2, Loader2, Cloud, HardDrive } from 'lucide-react';
+import { uploadAudioToFirebase, getAudioURLFromFirebase, deleteAudioFromFirebase, listAllAudioFiles } from './firebaseStorage';
 
 // --- DATA CONSTANTS ---
 const PHONIC_DATA = [
@@ -278,6 +279,7 @@ const App = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'stack'
   const [stackIndex, setStackIndex] = useState(0);
+  const [useFirebase, setUseFirebase] = useState(true); // Toggle between Firebase and IndexedDB
 
   // Audio Recording State - Now supporting string IDs
   const [recordingActiveId, setRecordingActiveId] = useState(null);
@@ -306,27 +308,41 @@ const App = () => {
   useEffect(() => {
     const loadCustomAudio = async () => {
       try {
-        const db = await initDB();
-        const transaction = db.transaction(STORE_NAME, 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
-        const request = store.getAllKeys();
-        request.onsuccess = async () => {
-          const keys = request.result;
+        if (useFirebase) {
+          // Load from Firebase Storage
+          const fileIds = await listAllAudioFiles();
           const newRecordings = {};
-          for (const key of keys) {
-             const blob = await getAudioBlob(key);
-             if (blob) {
-               newRecordings[key] = URL.createObjectURL(blob);
-             }
+          for (const id of fileIds) {
+            const url = await getAudioURLFromFirebase(id);
+            if (url) {
+              newRecordings[id] = url;
+            }
           }
           setCustomRecordings(newRecordings);
-        };
+        } else {
+          // Load from IndexedDB
+          const db = await initDB();
+          const transaction = db.transaction(STORE_NAME, 'readonly');
+          const store = transaction.objectStore(STORE_NAME);
+          const request = store.getAllKeys();
+          request.onsuccess = async () => {
+            const keys = request.result;
+            const newRecordings = {};
+            for (const key of keys) {
+               const blob = await getAudioBlob(key);
+               if (blob) {
+                 newRecordings[key] = URL.createObjectURL(blob);
+               }
+            }
+            setCustomRecordings(newRecordings);
+          };
+        }
       } catch (err) {
-        console.error("Error loading audio DB", err);
+        console.error("Error loading audio", err);
       }
     };
     loadCustomAudio();
-  }, []);
+  }, [useFirebase]);
 
   // -- Filter Logic --
   const filteredData = useMemo(() => {
@@ -386,11 +402,19 @@ const App = () => {
         }
         
         const wavBlob = createWavBlob(bytes.buffer, 24000);
-        
-        await saveAudioBlob(targetId, wavBlob);
-        const url = URL.createObjectURL(wavBlob);
+
+        let url;
+        if (useFirebase) {
+          // Upload to Firebase Storage
+          url = await uploadAudioToFirebase(targetId, wavBlob);
+        } else {
+          // Save to IndexedDB
+          await saveAudioBlob(targetId, wavBlob);
+          url = URL.createObjectURL(wavBlob);
+        }
+
         setCustomRecordings(prev => ({ ...prev, [targetId]: url }));
-        
+
         const audio = new Audio(url);
         audio.play();
 
@@ -416,9 +440,23 @@ const App = () => {
 
       mediaRecorderRef.current.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-        await saveAudioBlob(targetId, blob);
-        const url = URL.createObjectURL(blob);
-        setCustomRecordings(prev => ({ ...prev, [targetId]: url }));
+
+        if (useFirebase) {
+          // Upload to Firebase Storage
+          try {
+            const url = await uploadAudioToFirebase(targetId, blob);
+            setCustomRecordings(prev => ({ ...prev, [targetId]: url }));
+          } catch (error) {
+            console.error("Failed to upload to Firebase:", error);
+            alert("Failed to save recording to cloud. Please try again.");
+          }
+        } else {
+          // Save to IndexedDB
+          await saveAudioBlob(targetId, blob);
+          const url = URL.createObjectURL(blob);
+          setCustomRecordings(prev => ({ ...prev, [targetId]: url }));
+        }
+
         stream.getTracks().forEach(track => track.stop());
       };
 
@@ -442,12 +480,24 @@ const App = () => {
   };
 
   const deleteRecording = async (id) => {
-    await deleteAudioBlob(id);
-    setCustomRecordings(prev => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+    try {
+      if (useFirebase) {
+        // Delete from Firebase Storage
+        await deleteAudioFromFirebase(id);
+      } else {
+        // Delete from IndexedDB
+        await deleteAudioBlob(id);
+      }
+
+      setCustomRecordings(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } catch (error) {
+      console.error("Failed to delete recording:", error);
+      alert("Failed to delete recording. Please try again.");
+    }
   };
 
   // -- Playback Logic --
@@ -745,8 +795,43 @@ const App = () => {
             </div>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-semibold text-slate-700">Speed ({rate}x)</label>
-                <input type="range" min="0.5" max="1.5" step="0.1" value={rate} onChange={e => setRate(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 mt-2"/>
+                <label className="text-sm font-semibold text-slate-700 mb-3 block">Storage Location</label>
+                <div className="flex items-center gap-3 bg-slate-50 rounded-lg p-3">
+                  <button
+                    onClick={() => setUseFirebase(false)}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                      !useFirebase
+                        ? 'bg-slate-700 text-white shadow-md'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <HardDrive className="w-4 h-4" />
+                    Local
+                  </button>
+                  <button
+                    onClick={() => setUseFirebase(true)}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                      useFirebase
+                        ? 'bg-indigo-600 text-white shadow-md'
+                        : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Cloud className="w-4 h-4" />
+                    Cloud
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mt-2">
+                  {useFirebase
+                    ? 'Audio saved to Firebase Storage (accessible across devices)'
+                    : 'Audio saved locally in your browser (this device only)'}
+                </p>
+              </div>
+
+              <div className="border-t border-slate-200 pt-4">
+                <div>
+                  <label className="text-sm font-semibold text-slate-700">Speed ({rate}x)</label>
+                  <input type="range" min="0.5" max="1.5" step="0.1" value={rate} onChange={e => setRate(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 mt-2"/>
+                </div>
               </div>
               <div>
                 <label className="text-sm font-semibold text-slate-700">Pitch ({pitch})</label>
