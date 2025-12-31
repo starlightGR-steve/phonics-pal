@@ -1,5 +1,42 @@
 # Firebase Storage Setup Guide
 
+## Environment Variables Setup
+
+**IMPORTANT:** Firebase credentials are stored in environment variables for security. Never commit API keys to GitHub.
+
+### Local Development
+
+1. Create a `.env` file in the root directory (already created)
+2. Add your Firebase credentials:
+
+```env
+VITE_FIREBASE_API_KEY=your_api_key_here
+VITE_FIREBASE_AUTH_DOMAIN=your_auth_domain_here
+VITE_FIREBASE_PROJECT_ID=your_project_id_here
+VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket_here
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id_here
+VITE_FIREBASE_APP_ID=your_app_id_here
+```
+
+3. The `.env` file is already in `.gitignore` and will NOT be committed to GitHub
+
+### Vercel Deployment
+
+To deploy to Vercel, you need to configure the environment variables in the Vercel dashboard:
+
+1. Go to your Vercel project: https://vercel.com/dashboard
+2. Select your project (phonics-pal)
+3. Go to **Settings** → **Environment Variables**
+4. Add each environment variable:
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+5. Set each to apply to **Production**, **Preview**, and **Development**
+6. Redeploy your app for changes to take effect
+
 ## Firebase Storage Security Rules
 
 To allow your app to upload and download audio files, you need to configure Firebase Storage security rules.

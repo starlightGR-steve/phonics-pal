@@ -2,13 +2,14 @@ import { initializeApp } from "firebase/app";
 import { getStorage } from "firebase/storage";
 
 // Your web app's Firebase configuration
+// Uses environment variables for security (never commit API keys to GitHub)
 const firebaseConfig = {
-  apiKey: "AIzaSyDLLxVTW3iD9ejGY1tKU9Y4M8VldxE7jU4",
-  authDomain: "phonicspal-tcb.firebaseapp.com",
-  projectId: "phonicspal-tcb",
-  storageBucket: "phonicspal-tcb.firebasestorage.app",
-  messagingSenderId: "143159830132",
-  appId: "1:143159830132:web:34f0670433f3e8c7299321"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 // Initialize Firebase
