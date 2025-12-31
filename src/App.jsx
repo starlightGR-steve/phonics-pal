@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Volume2, Settings, X, Mic, Play, Square, Trash2, Zap, GraduationCap, LayoutGrid, Layers, ChevronLeft, ChevronRight, Wand2, Loader2, Cloud, HardDrive } from 'lucide-react';
+import { Volume2, Settings, X, Mic, Play, Square, Trash2, Zap, GraduationCap, LayoutGrid, Layers, ChevronLeft, ChevronRight, Wand2, Loader2, Cloud, HardDrive, Lock } from 'lucide-react';
 import { uploadAudioToFirebase, getAudioURLFromFirebase, deleteAudioFromFirebase, listAllAudioFiles } from './firebaseStorage';
 
 // --- DATA CONSTANTS ---
@@ -19,7 +19,11 @@ const PHONIC_DATA = [
   { id: 'm', letter: 'm', word: 'moon', image: '🌙', type: 'consonant', voiceOver: "M says m. Moon. M—oon. M." },
   { id: 'n', letter: 'n', word: 'net', image: '🥅', type: 'consonant', voiceOver: "N says n. Net. N—et. N." },
   { id: 'p', letter: 'p', word: 'pig', image: '🐷', type: 'consonant', voiceOver: "P says p. Pig. P—ig. P." },
-  { id: 'qu', letter: 'qu', word: 'queen', image: '👑', type: 'consonant', voiceOver: "Qu says kw. Queen. Kw—een. Kw." },
+  {
+    id: 'qu', letter: 'qu', word: 'queen', image: '👑', type: 'consonant',
+    why: 'Q usually comes before the letter u to say /kw/.',
+    voiceOver: "Qu says kw. Queen. Kw—een. Kw."
+  },
   { id: 'r', letter: 'r', word: 'rain', image: '🌧️', type: 'consonant', voiceOver: "R says r. Rain. R—ain. R." },
   { id: 's_sound', letter: 's', word: 'sun', image: '☀️', type: 'consonant', voiceOver: "S says s. Sun. S—un. S." },
   { id: 's_zsound', letter: 's', word: 'rose', image: '🌹', type: 'consonant', why: 'S can say /z/ in many final positions.', voiceOver: "S says z. Rose. Ro—z. Z." },
@@ -34,7 +38,7 @@ const PHONIC_DATA = [
   // 🔠 SECTION 2 — Short Vowel Sounds
   { id: 'short_a', letter: 'a', word: 'apple', image: '🍎', type: 'short_vowel', voiceOver: "A says ă. Apple. A—pple. Ă." },
   { id: 'short_e', letter: 'e', word: 'egg', image: '🥚', type: 'short_vowel', voiceOver: "E says ĕ. Egg. E—gg. Ĕ." },
-  { id: 'short_i', letter: 'i', word: 'igloo', image: '🏠', type: 'short_vowel', voiceOver: "I says ĭ. Igloo. I—gloo. Ĭ." },
+  { id: 'short_i', letter: 'i', word: 'insect', image: '🐛', type: 'short_vowel', voiceOver: "I says ĭ. Insect. In—sect. Ĭ." },
   { id: 'short_o', letter: 'o', word: 'octopus', image: '🐙', type: 'short_vowel', voiceOver: "O says ŏ. Octopus. O—cto—pus. Ŏ." },
   { id: 'short_u', letter: 'u', word: 'umbrella', image: '☔', type: 'short_vowel', voiceOver: "U says ŭ. Umbrella. U—mbrel—la. Ŭ." },
 
@@ -47,6 +51,11 @@ const PHONIC_DATA = [
   { id: 'ph', letter: 'ph', word: 'phone', image: '📞', type: 'digraph', why: 'P and h together say /f/.', voiceOver: "Ph says f. Phone. F—one. F." },
   { id: 'ck', letter: 'ck', word: 'duck', image: '🦆', type: 'digraph', why: 'We use ck after a short vowel to say /k/.', voiceOver: "Ck says k. Duck. D—uck. K." },
   { id: 'ng', letter: 'ng', word: 'ring', image: '💍', type: 'digraph', voiceOver: "Ng says ng. Ring. R—ing. Ng." },
+  {
+    id: 'ch_hard', letter: 'ch', word: 'school', image: '🏫', type: 'digraph',
+    why: 'ch says /k/ in some words',
+    voiceOver: "Ch says k. School. Sch—ool. K."
+  },
 
   // 🎧 SECTION 4 — Consonant Blends
   // L-Blends
@@ -81,6 +90,11 @@ const PHONIC_DATA = [
   { id: 'i_e', letter: 'i_e', word: 'kite', image: '🪁', type: 'silent_e', why: 'Silent e makes i say /ī/.', voiceOver: "I-e says ī. Kite. K—ite. Ī." },
   { id: 'o_e', letter: 'o_e', word: 'nose', image: '👃', type: 'silent_e', why: 'Silent e makes o say /ō/.', voiceOver: "O-e says ō. Nose. N—ose. Ō." },
   { id: 'u_e', letter: 'u_e', word: 'cube', image: '🧊', type: 'silent_e', why: 'Silent e makes u say /ū/.', voiceOver: "U-e says ū. Cube. C—ube. Ū." },
+  {
+    id: 'u_yoo', letter: 'u_e', word: 'tune', image: '🎵', type: 'silent_e',
+    why: 'Sometimes u starts with a /y/ sound and says /yoo/.',
+    voiceOver: "U says yoo. Tune. T—une. Yoo."
+  },
 
   // 💛 SECTION 6 — Vowel Teams
   { id: 'ai', letter: 'ai', word: 'rain', image: '🌧️', type: 'vowel_team', voiceOver: "Ai says ā. Rain. R—ain. Ā." },
@@ -269,9 +283,9 @@ const deleteAudioBlob = async (id) => {
 const App = () => {
   // -- State --
   const [isPlaying, setIsPlaying] = useState(null);
-  const [activeCard, setActiveCard] = useState(null); 
-  const [lessonMode, setLessonMode] = useState(true); 
-  const [rate, setRate] = useState(0.9); 
+  const [activeCard, setActiveCard] = useState(null);
+  const [lessonMode, setLessonMode] = useState(true);
+  const [rate, setRate] = useState(0.9);
   const [pitch, setPitch] = useState(1.0);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [voices, setVoices] = useState([]);
@@ -280,6 +294,7 @@ const App = () => {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'stack'
   const [stackIndex, setStackIndex] = useState(0);
   const [useFirebase, setUseFirebase] = useState(true); // Toggle between Firebase and IndexedDB
+  const [isAdmin, setIsAdmin] = useState(false); // Teacher mode
 
   // Audio Recording State - Now supporting string IDs
   const [recordingActiveId, setRecordingActiveId] = useState(null);
@@ -289,6 +304,14 @@ const App = () => {
   const mediaRecorderRef = useRef(null);
   const chunksRef = useRef([]);
   const timerRef = useRef(null);
+
+  // -- Check for Teacher Mode --
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'teacher') {
+      setIsAdmin(true);
+    }
+  }, []);
 
   // -- Init Voices --
   useEffect(() => {
@@ -349,6 +372,12 @@ const App = () => {
     if (selectedCategory === 'all') return PHONIC_DATA;
     return PHONIC_DATA.filter(item => item.type === selectedCategory);
   }, [selectedCategory]);
+
+  // -- Safe Category Switching --
+  const handleCategoryChange = (catId) => {
+    setSelectedCategory(catId);
+    setStackIndex(0); // Reset to prevent out-of-bounds errors
+  };
 
   useEffect(() => {
     setStackIndex(0);
@@ -618,10 +647,11 @@ const App = () => {
     const whyId = `${card.id}_why`;
     return (
     <>
-        {/* Main Audio Control */}
-        <div className="w-full mb-6 bg-slate-50 rounded-xl p-3 border border-slate-200">
+        {/* Main Audio Control - ONLY SHOW IF ADMIN */}
+        {isAdmin && (
+        <div className="w-full mb-6 bg-slate-50 rounded-xl p-3 border border-slate-200 border-l-4 border-l-indigo-500">
             <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Voice Studio (Main)</span>
+                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1"><Lock className="w-3 h-3" /> Teacher Controls ({useFirebase ? 'Cloud' : 'Local'})</span>
                 {customRecordings[card.id] && (
                     <button onClick={() => deleteRecording(card.id)} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1">
                         <Trash2 className="w-3 h-3" /> Clear
@@ -649,6 +679,7 @@ const App = () => {
                 )}
             </div>
         </div>
+        )}
 
         {/* Visual Anchor Area */}
         <div className="flex flex-col items-center justify-center gap-4 mb-6">
@@ -690,9 +721,10 @@ const App = () => {
                         <p className="text-slate-800">{card.why}</p>
                     </button>
 
-                    {/* Why Toolbar (Always visible now for clarity) */}
+                    {/* Why Toolbar - ONLY SHOW IF ADMIN */}
+                    {isAdmin && (
                     <div className="flex items-center justify-end gap-2 px-3 py-2 bg-indigo-100/50 border-t border-indigo-200/50">
-                        <span className="text-[10px] font-bold text-indigo-400 uppercase mr-auto">Voice Studio (Why)</span>
+                        <span className="text-[10px] font-bold text-indigo-400 uppercase mr-auto"><Lock className="w-3 h-3 inline" /> Edit (Why)</span>
                         
                         {customRecordings[whyId] && (
                             <button onClick={(e) => {e.stopPropagation(); deleteRecording(whyId)}} className="p-1.5 text-red-500 hover:bg-red-100 rounded-md" title="Clear Recording">
@@ -719,6 +751,7 @@ const App = () => {
                             </button>
                         )}
                     </div>
+                    )}
                 </div>
             )}
         </div>
@@ -766,12 +799,12 @@ const App = () => {
         </div>
 
         {/* Categories Scrollable */}
-        <div className="max-w-7xl mx-auto px-4 py-2 overflow-x-auto border-t border-slate-100 no-scrollbar">
-          <div className="flex gap-2 min-w-max pb-1">
+        <div className="max-w-7xl mx-auto px-4 py-2 border-t border-slate-100">
+          <div className="flex flex-wrap gap-2 pb-1">
             {categories.map(cat => (
               <button
                 key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
+                onClick={() => handleCategoryChange(cat.id)}
                 className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide transition-colors whitespace-nowrap ${
                   selectedCategory === cat.id 
                   ? 'bg-slate-800 text-white' 
